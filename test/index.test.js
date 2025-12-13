@@ -45,7 +45,7 @@ describe("SourcePlugin", () => {
     fs.readJson.mockImplementation(() => {
       return Promise.reject(new Error("File not found"));
     });
-    
+
     // Mock got to return an object with .json() method
     const mockGot = {
       json: jest.fn().mockResolvedValue({ results: { bindings: [] } })

@@ -464,7 +464,7 @@ describe("HttpProxy - HTTP Requests", () => {
 
       // Advance timers to allow all async operations to complete
       await jest.runAllTimersAsync();
-      
+
       await Promise.all([promise1, promise2]);
 
       // Second request should be delayed
@@ -493,7 +493,7 @@ describe("HttpProxy - HTTP Requests", () => {
 
       const promise1 = noLimitProxy.fetchJson("http://example.com/1");
       const promise2 = noLimitProxy.fetchJson("http://example.com/2");
-      
+
       // Advance timers to allow all async operations to complete
       await jest.runAllTimersAsync();
 

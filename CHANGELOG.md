@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Separated test and publish jobs
   - Code formatting checks before publish
   - Conditional publishing on version tags
+  - **Trusted Publishing (OIDC)** - Secure npm publishing without long-lived tokens
+  - Automatic provenance statement generation
 
 ### Changed
 
@@ -138,6 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Debounced cache saves tests
 - Test coverage: ~63% overall (73.58% for httpProxy.js, 39.72% for index.js)
 - 41 total tests across 2 test suites
+- **All 41 tests passing (100%)**
 
 ## [0.0.11] - Previous Release
 
@@ -150,3 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [Unreleased]: https://github.com/hunsalz/gridsome-source-wikidata/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/hunsalz/gridsome-source-wikidata/compare/v0.0.11...v0.1.0
 [0.0.11]: https://github.com/hunsalz/gridsome-source-wikidata/releases/tag/v0.0.11
+
+---
+
+**Note**: This version was published using npm Trusted Publishing (OIDC) for enhanced security. No long-lived tokens are required, and provenance statements are automatically generated.

@@ -29,16 +29,27 @@ describe("HttpProxy - HTTP Requests", () => {
     });
 
     fs.ensureDirSync.mockReturnValue(undefined);
-    fs.readJsonSync.mockImplementation(() => {
-      throw new Error("File not found");
+    fs.readJson.mockImplementation(() => {
+      return Promise.reject(new Error("File not found"));
     });
-    fs.outputFile.mockResolvedValue(undefined);
+    // Mock fs.outputFile to use callback API (as used by saveFile)
+    fs.outputFile.mockImplementation((path, data, callback) => {
+      if (callback) {
+        callback(null);
+      }
+      return Promise.resolve();
+    });
     fs.outputJson.mockResolvedValue(undefined);
 
-    // Use a path that will resolve within tempDir
-    const contentPath = path.join(tempDir, "content");
+    // Set up default got mock
+    const mockGot = {
+      json: jest.fn().mockResolvedValue({ results: { bindings: [] } })
+    };
+    got.mockReturnValue(mockGot);
+
+    // Use a relative path that will resolve within tempDir
     proxy = new HttpProxy({
-      baseDir: contentPath,
+      baseDir: "content",
       cacheEnabled: false, // Disable cache for simpler tests
       timeout: 30000
     });
@@ -80,7 +91,7 @@ describe("HttpProxy - HTTP Requests", () => {
 
     it("should use timeout from options", async () => {
       const customProxy = new HttpProxy({
-        baseDir: "/content/",
+        baseDir: "content",
         timeout: 60000
       });
       customProxy._cache = new Map();
@@ -193,10 +204,8 @@ describe("HttpProxy - HTTP Requests", () => {
 
   describe("File Size Validation", () => {
     beforeEach(() => {
-      // Use a path that will resolve within tempDir
-      const contentPath = path.join(tempDir, "content");
       proxy = new HttpProxy({
-        baseDir: contentPath,
+        baseDir: "content",
         maxFileSize: 1000, // 1KB limit for testing
         cacheEnabled: false
       });
@@ -215,7 +224,8 @@ describe("HttpProxy - HTTP Requests", () => {
       };
 
       got.stream.mockReturnValue(mockStream);
-      fs.createWriteStream.mockReturnValue({ on: jest.fn() });
+      const mockWriter = { on: jest.fn(), destroy: jest.fn() };
+      fs.createWriteStream.mockReturnValue(mockWriter);
       fs.unlink.mockResolvedValue(undefined);
 
       await expect(
@@ -238,7 +248,8 @@ describe("HttpProxy - HTTP Requests", () => {
       };
 
       const mockWriter = {
-        on: jest.fn()
+        on: jest.fn(),
+        destroy: jest.fn()
       };
 
       got.stream.mockReturnValue(mockStream);
@@ -288,10 +299,8 @@ describe("HttpProxy - HTTP Requests", () => {
 
   describe("File Type Validation", () => {
     beforeEach(() => {
-      // Use a path that will resolve within tempDir
-      const contentPath = path.join(tempDir, "content");
       proxy = new HttpProxy({
-        baseDir: contentPath,
+        baseDir: "content",
         allowedFileTypes: ["jpg", "png", "pdf"],
         cacheEnabled: false
       });
@@ -342,9 +351,8 @@ describe("HttpProxy - HTTP Requests", () => {
     });
 
     it("should allow all file types when allowedFileTypes is undefined", async () => {
-      const contentPath = path.join(tempDir, "content");
       const openProxy = new HttpProxy({
-        baseDir: contentPath,
+        baseDir: "content",
         allowedFileTypes: undefined,
         cacheEnabled: false
       });
@@ -387,22 +395,40 @@ describe("HttpProxy - HTTP Requests", () => {
     it("should handle case-insensitive file extensions", async () => {
       const mockStream = {
         pipe: jest.fn(),
-        on: jest.fn(() => mockStream)
+        on: jest.fn((event, callback) => {
+          if (event === "response") {
+            callback({ headers: { "content-length": "100" } });
+          }
+          if (event === "downloadProgress") {
+            callback({ transferred: 100 });
+          }
+          return mockStream;
+        })
+      };
+      const mockWriter = {
+        on: jest.fn((event, callback) => {
+          if (event === "finish") {
+            setImmediate(() => callback());
+          }
+        }),
+        destroy: jest.fn()
       };
       got.stream.mockReturnValue(mockStream);
+      fs.createWriteStream.mockReturnValue(mockWriter);
+      fs.unlink.mockResolvedValue(undefined);
 
+      // .JPG should be accepted when "jpg" is in allowedFileTypes (case-insensitive)
       await expect(
         proxy.save2disk("http://example.com/image.JPG", path.join(tempDir, "content"), "image.JPG")
-      ).rejects.toThrow("File type not allowed");
+      ).resolves.not.toThrow();
     });
   });
 
   describe("Rate Limiting", () => {
     beforeEach(() => {
       jest.useFakeTimers();
-      const contentPath = path.join(tempDir, "content");
       proxy = new HttpProxy({
-        baseDir: contentPath,
+        baseDir: "content",
         rateLimitDelay: 100, // 100ms delay
         cacheEnabled: false
       });
@@ -418,16 +444,27 @@ describe("HttpProxy - HTTP Requests", () => {
         json: jest.fn().mockResolvedValue({ results: { bindings: [] } })
       };
       got.mockReturnValue(mockGot);
-      fs.outputFile.mockResolvedValue(undefined);
+      fs.outputFile.mockImplementation((path, data, callback) => {
+        if (callback) {
+          callback(null);
+        }
+        return Promise.resolve();
+      });
       fs.outputJson.mockResolvedValue(undefined);
 
-      const startTime = Date.now();
       proxy._lastRequestTime = 0;
 
       const promise1 = proxy.fetchJson("http://example.com/1");
+      await jest.runAllTimersAsync();
       jest.advanceTimersByTime(50);
       const promise2 = proxy.fetchJson("http://example.com/2");
+      await jest.runAllTimersAsync();
+      jest.advanceTimersByTime(100); // Advance enough for rate limit delay
+      await jest.runAllTimersAsync();
 
+      // Advance timers to allow all async operations to complete
+      await jest.runAllTimersAsync();
+      
       await Promise.all([promise1, promise2]);
 
       // Second request should be delayed
@@ -435,9 +472,8 @@ describe("HttpProxy - HTTP Requests", () => {
     });
 
     it("should not delay when rateLimitDelay is 0", async () => {
-      const contentPath = path.join(tempDir, "content");
       const noLimitProxy = new HttpProxy({
-        baseDir: contentPath,
+        baseDir: "content",
         rateLimitDelay: 0,
         cacheEnabled: false
       });
@@ -447,11 +483,21 @@ describe("HttpProxy - HTTP Requests", () => {
         json: jest.fn().mockResolvedValue({ results: { bindings: [] } })
       };
       got.mockReturnValue(mockGot);
-      fs.outputFile.mockResolvedValue(undefined);
+      fs.outputFile.mockImplementation((path, data, callback) => {
+        if (callback) {
+          callback(null);
+        }
+        return Promise.resolve();
+      });
       fs.outputJson.mockResolvedValue(undefined);
 
-      await noLimitProxy.fetchJson("http://example.com/1");
-      await noLimitProxy.fetchJson("http://example.com/2");
+      const promise1 = noLimitProxy.fetchJson("http://example.com/1");
+      const promise2 = noLimitProxy.fetchJson("http://example.com/2");
+      
+      // Advance timers to allow all async operations to complete
+      await jest.runAllTimersAsync();
+
+      await Promise.all([promise1, promise2]);
 
       expect(got).toHaveBeenCalledTimes(2);
     });
@@ -460,9 +506,8 @@ describe("HttpProxy - HTTP Requests", () => {
   describe("Debounced Cache Saves", () => {
     beforeEach(() => {
       jest.useFakeTimers();
-      const contentPath = path.join(tempDir, "content");
       proxy = new HttpProxy({
-        baseDir: contentPath,
+        baseDir: "content",
         cacheEnabled: true
       });
       proxy._cache = new Map();
@@ -510,7 +555,11 @@ describe("HttpProxy - HTTP Requests", () => {
 
   describe("Error Handling", () => {
     it("should handle HTTP errors gracefully", async () => {
-      got.mockRejectedValue(new Error("Network error"));
+      // Mock got to return an object with .json() that rejects
+      const mockGot = {
+        json: jest.fn().mockRejectedValue(new Error("Network error"))
+      };
+      got.mockReturnValue(mockGot);
 
       await expect(proxy.fetchJson("http://example.com")).rejects.toThrow("Network error");
     });

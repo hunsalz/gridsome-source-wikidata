@@ -72,10 +72,11 @@ class SourcePlugin {
     });
     const downloads = [];
     // Validate and resolve baseDir to prevent path traversal
-    const baseDir = this._options.baseDir.startsWith("/")
-      ? this._options.baseDir
-      : "/" + this._options.baseDir;
-    const resolvedBaseDir = path.resolve(process.cwd(), baseDir);
+    // If baseDir starts with "/", treat as absolute path from project root
+    // Otherwise, treat as relative to project root
+    const resolvedBaseDir = this._options.baseDir.startsWith("/")
+      ? path.resolve(process.cwd(), this._options.baseDir.slice(1)) // Remove leading / and resolve
+      : path.resolve(process.cwd(), this._options.baseDir);
     // Ensure the resolved path is within the project directory
     const projectRoot = path.resolve(process.cwd());
     if (!resolvedBaseDir.startsWith(projectRoot)) {

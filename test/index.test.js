@@ -8,12 +8,8 @@ const os = require("os");
 jest.mock("fs-extra");
 
 // Mock got
-jest.mock("got", () => {
-  return {
-    __esModule: true,
-    default: jest.fn()
-  };
-});
+jest.mock("got");
+const got = require("got");
 
 describe("SourcePlugin", () => {
   let mockApi;
@@ -46,9 +42,15 @@ describe("SourcePlugin", () => {
 
     // Reset mocks
     fs.ensureDirSync.mockReturnValue(undefined);
-    fs.readJsonSync.mockImplementation(() => {
-      throw new Error("File not found");
+    fs.readJson.mockImplementation(() => {
+      return Promise.reject(new Error("File not found"));
     });
+    
+    // Mock got to return an object with .json() method
+    const mockGot = {
+      json: jest.fn().mockResolvedValue({ results: { bindings: [] } })
+    };
+    got.mockReturnValue(mockGot);
   });
 
   afterEach(() => {
@@ -100,7 +102,7 @@ describe("SourcePlugin", () => {
           sparql: "",
           typeName: "Person"
         });
-      }).toThrow("Invalid 'sparql' query");
+      }).toThrow("Missing 'sparql' query");
     });
 
     it("should throw error if sparql is not a valid SPARQL query", () => {
@@ -138,7 +140,8 @@ describe("SourcePlugin", () => {
         new SourcePlugin(mockApi, {
           url: "https://query.wikidata.org/sparql",
           sparql: "SELECT ?item WHERE { ?item wdt:P31 wd:Q5 }",
-          typeName: "Person"
+          typeName: "Person",
+          baseDir: "content"
         });
       }).not.toThrow();
     });
@@ -156,7 +159,8 @@ describe("SourcePlugin", () => {
           new SourcePlugin(mockApi, {
             url: "https://query.wikidata.org/sparql",
             sparql: query,
-            typeName: "Item"
+            typeName: "Item",
+            baseDir: "content"
           });
         }).not.toThrow();
       });
@@ -182,12 +186,12 @@ describe("SourcePlugin", () => {
         url: "https://query.wikidata.org/sparql",
         sparql: "SELECT ?item WHERE { ?item wdt:P31 wd:Q5 }",
         typeName: "Person",
-        baseDir: "/custom/",
+        baseDir: "custom",
         cacheEnabled: false,
         verbose: true
       });
 
-      expect(plugin._options.baseDir).toBe("/custom/");
+      expect(plugin._options.baseDir).toBe("custom");
       expect(plugin._options.cacheEnabled).toBe(false);
       expect(plugin._options.verbose).toBe(true);
     });
@@ -198,7 +202,8 @@ describe("SourcePlugin", () => {
       new SourcePlugin(mockApi, {
         url: "https://query.wikidata.org/sparql",
         sparql: "SELECT ?item WHERE { ?item wdt:P31 wd:Q5 }",
-        typeName: "Person"
+        typeName: "Person",
+        baseDir: "content"
       });
 
       expect(mockApi.loadSource).toHaveBeenCalled();
@@ -218,8 +223,8 @@ describe("HttpProxy", () => {
     });
 
     fs.ensureDirSync.mockReturnValue(undefined);
-    fs.readJsonSync.mockImplementation(() => {
-      throw new Error("File not found");
+    fs.readJson.mockImplementation(() => {
+      return Promise.reject(new Error("File not found"));
     });
   });
 
@@ -229,24 +234,28 @@ describe("HttpProxy", () => {
 
   describe("Initialization", () => {
     it("should create work directory", () => {
+      const contentPath = path.join(tempDir, "content");
       new HttpProxy({
-        baseDir: "content/"
+        baseDir: contentPath
       });
 
       expect(fs.ensureDirSync).toHaveBeenCalled();
     });
 
-    it("should read cache file if it exists", () => {
-      fs.readJsonSync.mockReturnValue({
+    it("should read cache file if it exists", async () => {
+      const contentPath = path.join(tempDir, "content");
+      fs.readJson.mockResolvedValue({
         cache: [["hash1", { path: "/path/to/file", ttl: Date.now() + 1000 }]]
       });
 
-      const contentPath = path.join(tempDir, "content");
       const proxy = new HttpProxy({
         baseDir: contentPath
       });
 
-      expect(fs.readJsonSync).toHaveBeenCalled();
+      // Wait for async cache loading
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(fs.readJson).toHaveBeenCalled();
       expect(proxy._cache).toBeDefined();
     });
 

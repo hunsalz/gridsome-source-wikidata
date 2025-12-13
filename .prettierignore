@@ -1,0 +1,18 @@
+# Dependencies
+node_modules
+yarn.lock
+package-lock.json
+
+# Build outputs
+coverage
+.nyc_output
+.cache
+
+# Generated files
+*.min.js
+
+# Documentation that shouldn't be auto-formatted
+CHANGELOG.md
+
+# Ignore test files (optional - can format them if desired)
+# test/

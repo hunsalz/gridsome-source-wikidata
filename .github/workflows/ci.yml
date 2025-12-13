@@ -42,6 +42,10 @@ jobs:
       - name: Run tests
         run: yarn test
 
+      - name: Generate coverage report
+        if: matrix.node-version == '24.x' && github.event_name == 'push'
+        run: yarn test:coverage || true
+
       - name: Upload coverage reports
         if: matrix.node-version == '24.x' && github.event_name == 'push'
         uses: codecov/codecov-action@v4
@@ -50,6 +54,9 @@ jobs:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unittests
+          name: codecov-umbrella
+          verbose: true
 
   lint:
     name: Lint and Type Check

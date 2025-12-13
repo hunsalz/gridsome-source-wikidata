@@ -1,15 +1,74 @@
-on: push
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Only publish on version tags (e.g., v0.0.12)
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  publish:
+  test:
+    name: Run tests before release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 13.x
-      - run: npm install
-      - run: npm test
-      - uses: JS-DevTools/npm-publish@v1
+          node-version: 24.x
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
         with:
-          token: ${{ secrets.NPM_TOKEN }}
+          path: |
+            ~/.yarn/cache
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Check code formatting
+        run: yarn format:check
+      
+      - name: Run tests
+        run: yarn test
+
+  publish:
+    name: Publish to npm
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.yarn/cache
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

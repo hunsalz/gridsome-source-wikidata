@@ -1,15 +1,28 @@
 {
-  "version": "0.0.11",
+  "version": "0.1.0",
   "name": "gridsome-source-wikidata",
   "description": "Wikidata source for Gridsome",
   "homepage": "https://github.com/hunsalz/gridsome-source-wikidata",
   "main": "index.js",
+  "types": "index.d.ts",
+  "author": "Markus Hunsalz",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hunsalz/gridsome-source-wikidata.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hunsalz/gridsome-source-wikidata/issues"
+  },
   "keywords": [
     "gridsome",
     "gridsome-plugin",
     "gridsome-source",
     "wikidata"
   ],
+  "peerDependencies": {
+    "gridsome": "^0.7.0 || ^1.0.0"
+  },
   "dependencies": {
     "cli-progress": "^3.9.0",
     "fs-extra": "^10.0.0",
@@ -20,6 +33,24 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=8.3"
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,json,md}\""
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "prettier": "^3.2.5"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/test/"
+    ]
   }
 }

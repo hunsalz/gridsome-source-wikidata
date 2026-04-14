@@ -164,17 +164,30 @@ class HttpProxy {
     // Apply rate limiting
     await this._applyRateLimit();
     // otherwise fetch data from URL with retries
-    const json = await retryWithBackoff(
-      () =>
-        got(url, {
-          headers: { Accept: "application/sparql-results+json" },
-          timeout: {
-            request: this._options.timeout || DEFAULT_TIMEOUT_MS
+    const json = await got(url, {
+      headers: { Accept: "application/sparql-results+json" },
+      timeout: {
+        request: this._options.timeout || DEFAULT_TIMEOUT_MS
+      },
+      retry: {
+        limit: this._options.maxRetries || DEFAULT_MAX_RETRIES,
+        statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
+        methods: ["GET"]
+      },
+      hooks: {
+        beforeRetry: [
+          ({ response, retryCount }) => {
+            if (response?.statusCode === 429) {
+              const retryAfter = response.headers["retry-after"];
+              const delay = retryAfter
+                ? parseInt(retryAfter, 10) * 1000
+                : (this._options.retryDelay || DEFAULT_RETRY_DELAY_MS) * 2 ** retryCount;
+              return new Promise((resolve) => setTimeout(resolve, delay));
+            }
           }
-        }).json(),
-      this._options.maxRetries || DEFAULT_MAX_RETRIES,
-      this._options.retryDelay || DEFAULT_RETRY_DELAY_MS
-    );
+        ]
+      }
+    }).json();
     // save json to disk
     const hash = revisionHash(url);
     const filePath = this.getPath(hash);
@@ -288,17 +301,30 @@ class HttpProxy {
     let totalBytesReceived = 0;
 
     const writer = fs.createWriteStream(filePath);
-    // start request with retries
-    const response = await retryWithBackoff(
-      () =>
-        got.stream(url, {
-          timeout: {
-            request: this._options.timeout || DEFAULT_TIMEOUT_MS
+    // start request — got handles retries (including 429 + Retry-After) internally
+    const response = got.stream(url, {
+      timeout: {
+        request: this._options.timeout || DEFAULT_TIMEOUT_MS
+      },
+      retry: {
+        limit: this._options.maxRetries || DEFAULT_MAX_RETRIES,
+        statusCodes: [408, 413, 429, 500, 502, 503, 504, 521, 522, 524],
+        methods: ["GET"]
+      },
+      hooks: {
+        beforeRetry: [
+          ({ response: res, retryCount }) => {
+            if (res?.statusCode === 429) {
+              const retryAfter = res.headers["retry-after"];
+              const delay = retryAfter
+                ? parseInt(retryAfter, 10) * 1000
+                : (this._options.retryDelay || DEFAULT_RETRY_DELAY_MS) * 2 ** retryCount;
+              return new Promise((resolve) => setTimeout(resolve, delay));
+            }
           }
-        }),
-      this._options.maxRetries || DEFAULT_MAX_RETRIES,
-      this._options.retryDelay || DEFAULT_RETRY_DELAY_MS
-    );
+        ]
+      }
+    });
     response
       .on("response", (response) => {
         // Check Content-Length header for file size validation
@@ -350,6 +376,11 @@ class HttpProxy {
     // pipe data stream to disk
     response.pipe(writer);
     return new Promise((resolve, reject) => {
+      response.on("error", (err) => {
+        writer.destroy();
+        fs.unlink(filePath).catch(() => {});
+        reject(err);
+      });
       writer.on("finish", async () => {
         // Final size check
         if (totalBytesReceived > maxFileSize) {

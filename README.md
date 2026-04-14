@@ -6,8 +6,9 @@
 
 ## Install
 
-- yarn add gridsome-source-wikidata
-- npm install gridsome-source-wikidata
+```bash
+npm install gridsome-source-wikidata
+```
 
 ## Usage
 

@@ -1,10 +1,22 @@
 {
-  "version": "0.1.1",
+  "version": "0.1.2",
   "name": "gridsome-source-wikidata",
   "description": "Wikidata source for Gridsome",
   "homepage": "https://github.com/hunsalz/gridsome-source-wikidata",
-  "main": "index.js",
+  "main": "./dist/index.cjs",
   "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist/",
+    "index.js",
+    "httpProxy.js",
+    "index.d.ts"
+  ],
   "author": "Markus Hunsalz",
   "license": "MIT",
   "repository": {
@@ -42,13 +54,15 @@
     "node": ">=22.0.0"
   },
   "scripts": {
+    "build": "esbuild index.js --bundle --platform=node --format=cjs --outfile=dist/index.cjs --external:gridsome",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "format": "prettier --write \"**/*.{js,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,json,md}\""
+    "format": "prettier --write \"**/*.{js,json,md}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{js,json,md}\" --ignore-path .gitignore"
   },
   "devDependencies": {
+    "esbuild": "^0.28.0",
     "husky": "^9.1.7",
     "jest": "^30.3.0",
     "lint-staged": "^16.4.0",

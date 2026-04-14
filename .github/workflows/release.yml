@@ -6,6 +6,9 @@ on:
       - 'v*'  # Only publish on version tags (e.g., v0.0.12)
   workflow_dispatch:  # Allow manual triggering
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: Run tests before release
@@ -69,3 +72,5 @@ jobs:
       
       - name: Publish to npm
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

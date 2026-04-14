@@ -36,8 +36,8 @@ High-level architecture (big picture)
 
 Key conventions and repo-specific patterns
 
-- GraphQL typeName must be an upper-case leading identifier (e.g., Painting). The plugin enforces /^[A-Z][a-zA-Z0-9]*$/.
-- Include an `?item` variable in SPARQL and use BIND(REPLACE(STR(...), "^.*/", "") AS ?item) to produce stable node IDs.
+- GraphQL typeName must be an upper-case leading identifier (e.g., Painting). The plugin enforces /^[A-Z][a-zA-Z0-9]\*$/.
+- Include an `?item` variable in SPARQL and use BIND(REPLACE(STR(...), "^.\*/", "") AS ?item) to produce stable node IDs.
 - baseDir semantics:
   - Default: "/content/" and treated relative to project root.
   - Provided baseDir must resolve inside the project root (plugin prevents path traversal).

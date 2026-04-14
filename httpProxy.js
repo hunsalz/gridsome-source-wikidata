@@ -1,8 +1,8 @@
-const got = require("got");
-const fs = require("fs-extra");
-const path = require("path");
-const revisionHash = require("rev-hash");
-const cliProgress = require("cli-progress");
+import got from "got";
+import fs from "fs-extra";
+import path from "path";
+import revisionHash from "rev-hash";
+import cliProgress from "cli-progress";
 
 // Constants
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -12,6 +12,8 @@ const DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 const MB = 1024 * 1024;
 const DEFAULT_RATE_LIMIT_DELAY_MS = 100; // 100ms delay between requests
 const CACHE_SAVE_DEBOUNCE_MS = 1000; // 1 second debounce for cache saves
+const DEFAULT_MAX_RETRIES = 2; // Retry up to 2 times on network errors
+const DEFAULT_RETRY_DELAY_MS = 1000; // Initial retry delay (exponential backoff applied)
 
 const multibar = new cliProgress.MultiBar(
   {
@@ -23,6 +25,20 @@ const multibar = new cliProgress.MultiBar(
   cliProgress.Presets.shades_grey
 );
 
+export const defaults = {
+  baseDir: "/content/",
+  cacheFilename: ".cache.json",
+  cacheEnabled: true,
+  ttl: DEFAULT_TTL_MS,
+  timeout: DEFAULT_TIMEOUT_MS,
+  maxFileSize: DEFAULT_MAX_FILE_SIZE,
+  allowedFileTypes: undefined, // undefined = allow all file types
+  rateLimitDelay: DEFAULT_RATE_LIMIT_DELAY_MS,
+  maxRetries: DEFAULT_MAX_RETRIES,
+  retryDelay: DEFAULT_RETRY_DELAY_MS,
+  verbose: false
+};
+
 /**
  * Checks if a value is a number
  * @param {*} val - Value to check
@@ -30,6 +46,54 @@ const multibar = new cliProgress.MultiBar(
  */
 function isNumber(val) {
   return typeof val === "number";
+}
+
+/**
+ * Checks if an error is retriable (transient network error)
+ * @param {Error} error - The error to check
+ * @returns {boolean} True if the error is retriable
+ */
+function isRetriableError(error) {
+  if (!error || !error.code) return false;
+  // Network timeouts and connection errors are retriable
+  return (
+    error.code === "ETIMEDOUT" ||
+    error.code === "ECONNRESET" ||
+    error.code === "ECONNREFUSED" ||
+    error.code === "ERR_HTTP2_STREAM_CANCEL" ||
+    (error.response && error.response.status >= 500) // Server errors are retriable
+  );
+}
+
+/**
+ * Retries an async operation with exponential backoff
+ * @param {Function} fn - Async function to retry
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} retryDelay - Initial delay in ms (exponential backoff applied)
+ * @param {Function} [shouldRetry] - Optional function to determine if error is retriable
+ * @returns {Promise} Result of the async operation
+ */
+async function retryWithBackoff(
+  fn,
+  maxRetries = 0,
+  retryDelay = 0,
+  shouldRetry = isRetriableError
+) {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries && shouldRetry(error)) {
+        const delay = retryDelay * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -52,8 +116,7 @@ class HttpProxy {
    */
   constructor(options) {
     // combine options with defaults
-    this._options = exports.defaults;
-    this._options = Object.assign({}, this._options, options);
+    this._options = Object.assign({}, defaults, options);
     // Validate and resolve baseDir to prevent path traversal
     // If baseDir starts with "/", treat as absolute path from project root
     // Otherwise, treat as relative to project root
@@ -100,13 +163,18 @@ class HttpProxy {
     }
     // Apply rate limiting
     await this._applyRateLimit();
-    // otherwise fetch data from URL
-    const json = await got(url, {
-      headers: { Accept: "application/sparql-results+json" },
-      timeout: {
-        request: this._options.timeout || DEFAULT_TIMEOUT_MS
-      }
-    }).json();
+    // otherwise fetch data from URL with retries
+    const json = await retryWithBackoff(
+      () =>
+        got(url, {
+          headers: { Accept: "application/sparql-results+json" },
+          timeout: {
+            request: this._options.timeout || DEFAULT_TIMEOUT_MS
+          }
+        }).json(),
+      this._options.maxRetries || DEFAULT_MAX_RETRIES,
+      this._options.retryDelay || DEFAULT_RETRY_DELAY_MS
+    );
     // save json to disk
     const hash = revisionHash(url);
     const filePath = this.getPath(hash);
@@ -220,13 +288,18 @@ class HttpProxy {
     let totalBytesReceived = 0;
 
     const writer = fs.createWriteStream(filePath);
-    // start request
-    const response = await got
-      .stream(url, {
-        timeout: {
-          request: this._options.timeout || DEFAULT_TIMEOUT_MS
-        }
-      })
+    // start request with retries
+    const response = await retryWithBackoff(
+      () =>
+        got.stream(url, {
+          timeout: {
+            request: this._options.timeout || DEFAULT_TIMEOUT_MS
+          }
+        }),
+      this._options.maxRetries || DEFAULT_MAX_RETRIES,
+      this._options.retryDelay || DEFAULT_RETRY_DELAY_MS
+    );
+    response
       .on("response", (response) => {
         // Check Content-Length header for file size validation
         const contentLength = response.headers["content-length"];
@@ -463,16 +536,4 @@ class HttpProxy {
   }
 }
 
-exports.defaults = {
-  baseDir: "/content/",
-  cacheFilename: ".cache.json",
-  cacheEnabled: true,
-  ttl: DEFAULT_TTL_MS,
-  timeout: DEFAULT_TIMEOUT_MS,
-  maxFileSize: DEFAULT_MAX_FILE_SIZE,
-  allowedFileTypes: undefined, // undefined = allow all file types
-  rateLimitDelay: DEFAULT_RATE_LIMIT_DELAY_MS,
-  verbose: false
-};
-
-module.exports = HttpProxy;
+export default HttpProxy;

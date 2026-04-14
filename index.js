@@ -1,5 +1,5 @@
-const HttpProxy = require("./httpProxy.js");
-const path = require("path");
+import HttpProxy from "./httpProxy.js";
+import path from "path";
 
 // Constants
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -7,6 +7,22 @@ const DEFAULT_TTL_MS = 24 * ONE_HOUR_MS; // 24 hours
 const DEFAULT_TIMEOUT_MS = 30000; // 30 seconds
 const DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 const DEFAULT_RATE_LIMIT_DELAY_MS = 100; // 100ms delay between requests
+const DEFAULT_MAX_RETRIES = 2; // Retry up to 2 times on network errors
+const DEFAULT_RETRY_DELAY_MS = 1000; // Initial retry delay (exponential backoff applied)
+
+export const defaults = {
+  baseDir: "/content/",
+  cacheFilename: ".cache.json",
+  cacheEnabled: true,
+  ttl: DEFAULT_TTL_MS,
+  timeout: DEFAULT_TIMEOUT_MS,
+  maxFileSize: DEFAULT_MAX_FILE_SIZE,
+  allowedFileTypes: undefined, // undefined = allow all file types
+  rateLimitDelay: DEFAULT_RATE_LIMIT_DELAY_MS,
+  maxRetries: DEFAULT_MAX_RETRIES,
+  retryDelay: DEFAULT_RETRY_DELAY_MS,
+  verbose: false
+};
 
 /**
  * Gridsome source plugin for Wikidata
@@ -28,12 +44,13 @@ class SourcePlugin {
    * @param {number} [options.maxFileSize] - Maximum file size in bytes (default: 100MB)
    * @param {string[]} [options.allowedFileTypes] - Array of allowed file extensions (e.g., ['jpg', 'png', 'pdf']). If undefined, all types are allowed.
    * @param {number} [options.rateLimitDelay] - Delay in milliseconds between requests (default: 100ms). Set to 0 to disable rate limiting.
+   * @param {number} [options.maxRetries] - Maximum number of retries for network errors (default: 2)
+   * @param {number} [options.retryDelay] - Initial delay in milliseconds for retries with exponential backoff (default: 1000ms)
    * @param {boolean} [options.verbose=false] - Enable verbose logging
    */
   constructor(api, options) {
     // combine options with defaults
-    this._options = exports.defaults;
-    this._options = Object.assign({}, this._options, options);
+    this._options = Object.assign({}, defaults, options);
 
     // Validate mandatory options
     this._validateOptions();
@@ -48,6 +65,8 @@ class SourcePlugin {
       maxFileSize: this._options.maxFileSize,
       allowedFileTypes: this._options.allowedFileTypes,
       rateLimitDelay: this._options.rateLimitDelay,
+      maxRetries: this._options.maxRetries,
+      retryDelay: this._options.retryDelay,
       verbose: this._options.verbose
     });
 
@@ -209,16 +228,4 @@ class SourcePlugin {
   }
 }
 
-exports.defaults = {
-  baseDir: "/content/",
-  cacheFilename: ".cache.json",
-  cacheEnabled: true,
-  ttl: DEFAULT_TTL_MS,
-  timeout: DEFAULT_TIMEOUT_MS,
-  maxFileSize: DEFAULT_MAX_FILE_SIZE,
-  allowedFileTypes: undefined, // undefined = allow all file types
-  rateLimitDelay: DEFAULT_RATE_LIMIT_DELAY_MS,
-  verbose: false
-};
-
-module.exports = SourcePlugin;
+export default SourcePlugin;

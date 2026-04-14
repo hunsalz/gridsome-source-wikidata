@@ -26,6 +26,10 @@ export interface WikidataSourceOptions {
   allowedFileTypes?: string[];
   /** Delay in milliseconds between requests to prevent hitting API rate limits (default: 100). Set to 0 to disable. */
   rateLimitDelay?: number;
+  /** Maximum number of retries for transient network errors (default: 2) */
+  maxRetries?: number;
+  /** Initial delay in milliseconds for retries with exponential backoff (default: 1000) */
+  retryDelay?: number;
   /** Enable verbose logging (default: false) */
   verbose?: boolean;
 }
@@ -74,4 +78,18 @@ declare class SourcePlugin {
   constructor(api: SourcePluginApi, options: WikidataSourceOptions);
 }
 
-export = SourcePlugin;
+export declare const defaults: {
+  baseDir: string;
+  cacheFilename: string;
+  cacheEnabled: boolean;
+  ttl: number;
+  timeout: number;
+  maxFileSize: number;
+  allowedFileTypes: undefined;
+  rateLimitDelay: number;
+  maxRetries: number;
+  retryDelay: number;
+  verbose: boolean;
+};
+
+export default SourcePlugin;

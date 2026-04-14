@@ -22,21 +22,19 @@ jobs:
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.yarn/cache
-            node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
-      
+            ${{ runner.os }}-npm-
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
-      
+        run: npm ci
+
       - name: Check code formatting
-        run: yarn format:check
-      
+        run: npm run format:check
+
       - name: Run tests
-        run: yarn test
+        run: npm test
 
   publish:
     name: Publish to npm
@@ -58,16 +56,14 @@ jobs:
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.yarn/cache
-            node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
-      
+            ${{ runner.os }}-npm-
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
-      
+        run: npm ci
+
       - name: Ensure npm version supports trusted publishing
         run: npm install -g npm@latest
       

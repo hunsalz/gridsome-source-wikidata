@@ -1,21 +1,41 @@
-const HttpProxy = require("../httpProxy.js");
-const got = require("got");
-const fs = require("fs-extra");
-const path = require("path");
-const os = require("os");
+import { jest } from "@jest/globals";
+import path from "path";
+import os from "os";
 
-// Mock modules
-jest.mock("got");
-jest.mock("fs-extra");
-jest.mock("cli-progress", () => ({
-  MultiBar: jest.fn(() => ({
-    create: jest.fn(),
-    stop: jest.fn()
-  })),
-  Presets: {
-    shades_grey: {}
+// Mocks must be registered before importing the modules under test
+jest.unstable_mockModule("got", () => ({
+  default: Object.assign(jest.fn(), { stream: jest.fn() })
+}));
+
+jest.unstable_mockModule("fs-extra", () => ({
+  default: {
+    ensureDirSync: jest.fn(),
+    readJson: jest.fn(),
+    outputFile: jest.fn(),
+    outputJson: jest.fn(),
+    createWriteStream: jest.fn(),
+    readFileSync: jest.fn(),
+    pathExists: jest.fn(),
+    unlink: jest.fn()
   }
 }));
+
+jest.unstable_mockModule("cli-progress", () => ({
+  default: {
+    MultiBar: jest.fn(() => ({
+      create: jest.fn(),
+      stop: jest.fn()
+    })),
+    Presets: {
+      shades_grey: {}
+    }
+  }
+}));
+
+const { default: HttpProxy } = await import("../httpProxy.js");
+const { default: got } = await import("got");
+const { default: fs } = await import("fs-extra");
+const { default: revisionHash } = await import("rev-hash");
 
 describe("HttpProxy - HTTP Requests", () => {
   let proxy;
@@ -115,7 +135,7 @@ describe("HttpProxy - HTTP Requests", () => {
 
     it("should return cached data when available", async () => {
       const url = "http://example.com";
-      const hash = require("rev-hash")(url);
+      const hash = revisionHash(url);
       const cachedData = { path: "/path/to/file.json", ttl: Date.now() + 1000 };
       proxy._cache.set(hash, cachedData);
       proxy._options.cacheEnabled = true;
@@ -189,7 +209,7 @@ describe("HttpProxy - HTTP Requests", () => {
 
     it("should return cached file if available", async () => {
       const url = "http://example.com/file.jpg";
-      const hash = require("rev-hash")(url);
+      const hash = revisionHash(url);
       const cachedData = { path: "/path/to/file.jpg", ttl: Date.now() + 1000 };
       proxy._cache.set(hash, cachedData);
       proxy._options.cacheEnabled = true;
@@ -590,6 +610,32 @@ describe("HttpProxy - HTTP Requests", () => {
       await expect(
         proxy.save2disk("http://example.com/file.jpg", path.join(tempDir, "content"), "file.jpg")
       ).rejects.toThrow("Write error");
+    });
+  });
+
+  describe("Retry Configuration", () => {
+    it("should accept maxRetries option", () => {
+      const customProxy = new HttpProxy({
+        baseDir: "content",
+        maxRetries: 5
+      });
+      expect(customProxy._options.maxRetries).toBe(5);
+    });
+
+    it("should accept retryDelay option", () => {
+      const customProxy = new HttpProxy({
+        baseDir: "content",
+        retryDelay: 500
+      });
+      expect(customProxy._options.retryDelay).toBe(500);
+    });
+
+    it("should use default retry settings when not specified", () => {
+      const defaultProxy = new HttpProxy({
+        baseDir: "content"
+      });
+      expect(defaultProxy._options.maxRetries).toBeDefined();
+      expect(defaultProxy._options.retryDelay).toBeDefined();
     });
   });
 });

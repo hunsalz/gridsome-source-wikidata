@@ -1,22 +1,33 @@
-const SourcePlugin = require("../index.js");
-const HttpProxy = require("../httpProxy.js");
-const fs = require("fs-extra");
-const path = require("path");
-const os = require("os");
+import { jest } from "@jest/globals";
+import path from "path";
+import os from "os";
 
-// Mock fs-extra
-jest.mock("fs-extra");
+// Mocks must be registered before importing the modules under test
+jest.unstable_mockModule("fs-extra", () => ({
+  default: {
+    ensureDirSync: jest.fn(),
+    readJson: jest.fn(),
+    pathExists: jest.fn(),
+    outputFile: jest.fn(),
+    outputJson: jest.fn(),
+    readFileSync: jest.fn()
+  }
+}));
 
-// Mock got
-jest.mock("got");
-const got = require("got");
+jest.unstable_mockModule("got", () => ({
+  default: Object.assign(jest.fn(), { stream: jest.fn() })
+}));
+
+const { default: SourcePlugin } = await import("../index.js");
+const { default: HttpProxy } = await import("../httpProxy.js");
+const { default: got } = await import("got");
+const { default: fs } = await import("fs-extra");
 
 describe("SourcePlugin", () => {
   let mockApi;
   let tempDir;
 
   beforeEach(() => {
-    // Create a temporary directory for tests
     tempDir = path.join(os.tmpdir(), `gridsome-test-${Date.now()}`);
     process.chdir = jest.fn();
     Object.defineProperty(process, "cwd", {
@@ -24,10 +35,8 @@ describe("SourcePlugin", () => {
       writable: true
     });
 
-    // Mock Gridsome API
     mockApi = {
       loadSource: jest.fn((callback) => {
-        // Simulate async execution
         setImmediate(() => {
           const mockActions = {
             addCollection: jest.fn(() => ({
@@ -40,13 +49,11 @@ describe("SourcePlugin", () => {
       onCreateNode: jest.fn()
     };
 
-    // Reset mocks
     fs.ensureDirSync.mockReturnValue(undefined);
     fs.readJson.mockImplementation(() => {
       return Promise.reject(new Error("File not found"));
     });
 
-    // Mock got to return an object with .json() method
     const mockGot = {
       json: jest.fn().mockResolvedValue({ results: { bindings: [] } })
     };
@@ -252,7 +259,6 @@ describe("HttpProxy", () => {
         baseDir: contentPath
       });
 
-      // Wait for async cache loading
       await new Promise((resolve) => setImmediate(resolve));
 
       expect(fs.readJson).toHaveBeenCalled();
@@ -260,7 +266,7 @@ describe("HttpProxy", () => {
     });
 
     it("should initialize empty cache if file doesn't exist", () => {
-      fs.readJsonSync.mockImplementation(() => {
+      fs.readFileSync = jest.fn(() => {
         throw new Error("File not found");
       });
 
@@ -296,7 +302,7 @@ describe("HttpProxy", () => {
   describe("Cache Operations", () => {
     let proxy;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       const contentPath = path.join(tempDir, "content");
       proxy = new HttpProxy({
         baseDir: contentPath,
@@ -318,8 +324,9 @@ describe("HttpProxy", () => {
     });
 
     it("should return cached data when available", async () => {
+      const { default: revisionHash } = await import("rev-hash");
       const url = "http://example.com";
-      const hash = require("rev-hash")(url);
+      const hash = revisionHash(url);
       const cachedData = { path: "/path/to/file", ttl: Date.now() + 1000 };
       proxy._cache.set(hash, cachedData);
       fs.readFileSync.mockReturnValue(Buffer.from('{"test": "data"}'));
@@ -328,10 +335,11 @@ describe("HttpProxy", () => {
       expect(result).toBeDefined();
     });
 
-    it("should return undefined for expired cache", () => {
+    it("should return undefined for expired cache", async () => {
+      const { default: revisionHash } = await import("rev-hash");
       const url = "http://example.com";
-      const hash = require("rev-hash")(url);
-      const cachedData = { path: "/path/to/file", ttl: Date.now() - 1000 }; // Expired
+      const hash = revisionHash(url);
+      const cachedData = { path: "/path/to/file", ttl: Date.now() - 1000 };
       proxy._cache.set(hash, cachedData);
 
       const result = proxy.get(url);

@@ -23,8 +23,13 @@
   "peerDependencies": {
     "gridsome": "^0.7.0 || ^1.0.0"
   },
+  "peerDependenciesMeta": {
+    "gridsome": {
+      "optional": true
+    }
+  },
   "dependencies": {
-    "cli-progress": "^3.9.0",
+    "cli-progress": "^3.12.0",
     "fs-extra": "^11.3.4",
     "got": "^15.0.2",
     "rev-hash": "^4.1.0"
@@ -32,18 +37,21 @@
   "publishConfig": {
     "access": "public"
   },
+  "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "format": "prettier --write \"**/*.{js,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,json,md}\""
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "jest": "^30.3.0",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.2"
   },
   "jest": {
@@ -52,5 +60,8 @@
       "/node_modules/",
       "/test/"
     ]
+  },
+  "lint-staged": {
+    "*.{js,json,md}": "prettier --write"
   }
 }

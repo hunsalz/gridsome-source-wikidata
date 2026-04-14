@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Security Features
+
 - Comprehensive input validation for URL, SPARQL, typeName, and baseDir
 - Request timeout configuration (default: 30 seconds)
 - File size limits (`maxFileSize` option, default: 100MB)
@@ -19,11 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved error recovery with warnings for corrupted cache files
 
 #### Performance Features
+
 - Rate limiting (`rateLimitDelay` option, default: 100ms)
 - Async cache operations (non-blocking)
 - Debounced cache saves (reduces disk I/O, 1 second debounce)
 
 #### Developer Experience
+
 - TypeScript definitions (`index.d.ts`) with Gridsome API types
 - JSDoc comments throughout the codebase
 - `.editorconfig` for consistent code style
@@ -34,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test scripts: `test`, `test:watch`, `test:coverage`
 
 #### Documentation
+
 - CHANGELOG.md for version history
 - Enhanced README with:
   - Comprehensive troubleshooting section
@@ -46,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explicit node ID generation for Gridsome compatibility
 
 #### CI/CD
+
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`)
   - Matrix testing across Node.js versions (20.x, 22.x, 24.x)
   - Code formatting checks
@@ -62,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 #### Dependencies & Configuration
+
 - Updated Node.js requirement from `>=8.3` to `>=20.0.0`
 - Updated GitHub Actions to latest versions (checkout@v4, setup-node@v4)
 - Updated Node.js version in CI to 24.x (current Active LTS)
@@ -75,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `types`: TypeScript definitions entry point
 
 #### Code Quality
+
 - Improved error handling with proper async/await patterns
 - Replaced magic numbers with named constants (`ONE_HOUR_MS`, `DEFAULT_TTL_MS`, `DEFAULT_TIMEOUT_MS`, etc.)
 - Improved filename extraction using `path` module
@@ -84,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consistent code style across all files
 
 #### Documentation
+
 - Fixed inconsistent option names (`cacheFile` → `cacheFilename`)
 - Enhanced README options table with types and better formatting
 - Added comprehensive SPARQL query examples
@@ -92,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 #### Critical Bugs
+
 - Fixed bug where `download.path` was referenced but didn't exist
 - Fixed inconsistent option name (`cacheFile` vs `cacheFilename`) in README
 - Fixed silent error handling in `fetchWikidata`
@@ -99,11 +108,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed missing test script in package.json
 
 #### Security Issues
+
 - Fixed path traversal vulnerability in baseDir and filename handling
 - Fixed missing request timeouts (could hang indefinitely)
 - Fixed cache file location security concerns
 
 #### Code Quality
+
 - Fixed variable declaration (`var` to `let`)
 - Fixed empty `onCreateNode` hook (removed)
 - Fixed inconsistent async patterns
@@ -111,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed file extension detection issues
 
 #### Documentation
+
 - Fixed README example: `verbose: "true"` → `verbose: true` (boolean)
 - Fixed missing defaults in code vs documentation
 - Fixed outdated "Open Issues" section in README
@@ -145,6 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.11] - Previous Release
 
 ### Features
+
 - Initial release with basic Wikidata SPARQL query support
 - File download and caching functionality
 - Progress bar for downloads (verbose mode)
